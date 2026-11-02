@@ -104,6 +104,22 @@ final class client_test extends \advanced_testcase {
     }
 
     /**
+     * A reinstalled plugin has no token yet: the signed assertion is all it sends.
+     */
+    public function test_recover_sends_the_site_assertion(): void {
+        $curl = new mock_curl(200, json_encode(['token' => 'tok']));
+
+        $invite = (new client($curl))->recover('signed.jwt.value');
+
+        $this->assertSame('tok', $invite['token']);
+        $call = $curl->calls[0];
+        $this->assertSame('POST', $call['method']);
+        $this->assertSame('https://service.test/api/lti/dteach/recover/', $call['url']);
+        $this->assertSame(['assertion' => 'signed.jwt.value'], json_decode($call['params'], true));
+        $this->assertSame(['Accept: application/json', 'Content-Type: application/json'], $call['header']);
+    }
+
+    /**
      * Every later call is authenticated by the token the invite left behind.
      */
     public function test_status_sends_the_site_token(): void {

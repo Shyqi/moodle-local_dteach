@@ -24,6 +24,34 @@ namespace local_dteach;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class lti_tool {
+    /** @var string Audience of the site assertion: never a client id, which launch tokens carry. */
+    private const RECOVERY_AUDIENCE = 'dteach:site-recovery';
+
+    /** @var int Seconds the site assertion stays valid. */
+    private const ASSERTION_TTL = 60;
+
+    /**
+     * Statement that this site is the one the service registered, signed with its LTI platform key.
+     *
+     * The key belongs to mod_lti and outlives this plugin, so a reinstalled plugin can prove
+     * the site it runs on to the service, which checks it against the keys the site published.
+     *
+     * @return string signed JWT
+     */
+    public static function site_assertion(): string {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/lti/locallib.php');
+
+        $privatekey = \mod_lti\local\ltiopenid\jwks_helper::get_private_key();
+        $now = time();
+        return \Firebase\JWT\JWT::encode([
+            'iss' => $CFG->wwwroot,
+            'aud' => self::RECOVERY_AUDIENCE,
+            'iat' => $now,
+            'exp' => $now + self::ASSERTION_TTL,
+        ], $privatekey['key'], 'RS256', $privatekey['kid']);
+    }
+
     /**
      * Activate the registered tool, offering it in the activity chooser while the plan runs.
      *

@@ -88,6 +88,18 @@ class client {
     }
 
     /**
+     * Get back the token of a site that is already connected, on the word of the site's LMS.
+     *
+     * @param string $assertion JWT signed with this site's LTI platform key
+     * @return array the site's invite, including its token
+     */
+    public function recover(string $assertion): array {
+        return $this->request('POST', '/api/lti/dteach/recover/', [
+            'assertion' => $assertion,
+        ], null);
+    }
+
+    /**
      * Connection and plan state behind a token.
      *
      * @param string $token

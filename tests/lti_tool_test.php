@@ -198,4 +198,19 @@ final class lti_tool_test extends \advanced_testcase {
 
         $this->assertFalse(lti_tool::activate('client-two', true));
     }
+
+    /**
+     * The service checks the assertion against the keys this site publishes for LTI.
+     */
+    public function test_the_site_assertion_is_signed_with_the_platform_key(): void {
+        global $CFG;
+
+        $assertion = lti_tool::site_assertion();
+
+        $keys = \Firebase\JWT\JWK::parseKeySet(\mod_lti\local\ltiopenid\jwks_helper::get_jwks());
+        $claims = \Firebase\JWT\JWT::decode($assertion, $keys);
+        $this->assertSame($CFG->wwwroot, $claims->iss);
+        $this->assertSame('dteach:site-recovery', $claims->aud);
+        $this->assertLessThanOrEqual(60, $claims->exp - $claims->iat);
+    }
 }

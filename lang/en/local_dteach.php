@@ -41,6 +41,7 @@ $string['errorcontactemailrequired'] = 'Connecting for free needs an email addre
 $string['errorlicencealreadyclaimed'] = 'This licence key already activates another site. One key opens one site.';
 $string['errorlicencenotactive'] = 'This licence is no longer active. Contact us to renew it, then activate this site again.';
 $string['errorsitealreadyconnected'] = 'This site is already connected to DTeach.';
+$string['errorsitenotrecognized'] = 'This site is already connected to DTeach, but its connection could not be recovered. Write to contact@dteach.net and we will restore it.';
 $string['errorunknownlicencekey'] = 'This licence key is not recognised. Check the key DTeach sent you.';
 $string['expired'] = 'Your plan has ended, and teachers can no longer open DTeach. Contact us to renew it. This site keeps its licence key.';
 $string['finishsetup'] = 'Finish setup';

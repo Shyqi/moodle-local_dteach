@@ -128,11 +128,19 @@ if ($status === null && $pendingkey === '' && $pendingemail === '' && $token !==
 
 if ($pendingkey !== '' || $pendingemail !== '') {
     try {
-        if ($pendingkey !== '') {
-            $invite = $client->issue_token($CFG->wwwroot, $pendingkey);
-            set_config('licencekey', $pendingkey, LOCAL_DTEACH);
-        } else {
-            $invite = $client->connect_free($CFG->wwwroot, $pendingemail);
+        try {
+            if ($pendingkey !== '') {
+                $invite = $client->issue_token($CFG->wwwroot, $pendingkey);
+                set_config('licencekey', $pendingkey, LOCAL_DTEACH);
+            } else {
+                $invite = $client->connect_free($CFG->wwwroot, $pendingemail);
+            }
+        } catch (service_exception $e) {
+            if ($e->servicecode !== 'site_already_connected') {
+                throw $e;
+            }
+            // A reinstalled plugin lost the token its site still holds: the site's LMS vouches for it.
+            $invite = $client->recover(lti_tool::site_assertion());
         }
         set_config('token', $invite['token'], LOCAL_DTEACH);
         set_config('registrationurl', $invite['registration_url'], LOCAL_DTEACH);

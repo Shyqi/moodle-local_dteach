@@ -11,6 +11,7 @@ All notable changes to this plugin are documented here. The format follows
 - *Connect for free*: a site connects with the administrator's email address and no licence key. It gets 15 days with every feature, then stays free for up to 20 members.
 - A licence key can be pasted on a site that is already connected, without registering again.
 - The *Connection* page shows the days left of the trial, and how many of the free seats are taken.
+- A reinstalled plugin gets its site's connection back on its own: the site signs for itself with its LTI platform key.
 
 ### Changed
 
