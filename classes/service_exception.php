@@ -30,6 +30,7 @@ class service_exception extends \moodle_exception {
         'licence_already_claimed' => 'errorlicencealreadyclaimed',
         'licence_not_active' => 'errorlicencenotactive',
         'site_already_connected' => 'errorsitealreadyconnected',
+        'contact_email_required' => 'errorcontactemailrequired',
     ];
 
     /** @var string Machine-readable code from the service, empty when it sent none. */

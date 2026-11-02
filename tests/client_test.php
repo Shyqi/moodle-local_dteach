@@ -63,6 +63,47 @@ final class client_test extends \advanced_testcase {
     }
 
     /**
+     * A free connection needs no key: the admin's email travels with the site address instead.
+     */
+    public function test_connect_free_sends_the_contact_email(): void {
+        $curl = new mock_curl(201, json_encode([
+            'token' => 'tok',
+            'registration_url' => 'https://service.test/api/lti/register/tok/',
+        ]));
+
+        $invite = (new client($curl))->connect_free('https://moodle.test', 'admin@moodle.test');
+
+        $this->assertSame('tok', $invite['token']);
+        $call = $curl->calls[0];
+        $this->assertSame('POST', $call['method']);
+        $this->assertSame('https://service.test/api/lti/dteach/invites/', $call['url']);
+        $this->assertSame(
+            ['site_url' => 'https://moodle.test', 'contact_email' => 'admin@moodle.test'],
+            json_decode($call['params'], true)
+        );
+        $this->assertSame(['Accept: application/json', 'Content-Type: application/json'], $call['header']);
+    }
+
+    /**
+     * A key spent on a connected site is authenticated by the site token, not by the site address.
+     */
+    public function test_claim_licence_sends_the_key_with_the_site_token(): void {
+        $curl = new mock_curl(200, json_encode(['connected' => true, 'state' => 'paid']));
+
+        $status = (new client($curl))->claim_licence('tok', 'abcdef');
+
+        $this->assertSame('paid', $status['state']);
+        $call = $curl->calls[0];
+        $this->assertSame('POST', $call['method']);
+        $this->assertSame('https://service.test/api/lti/dteach/licence/', $call['url']);
+        $this->assertSame(['licence_key' => 'abcdef'], json_decode($call['params'], true));
+        $this->assertSame(
+            ['Accept: application/json', 'Authorization: Bearer tok', 'Content-Type: application/json'],
+            $call['header']
+        );
+    }
+
+    /**
      * Every later call is authenticated by the token the invite left behind.
      */
     public function test_status_sends_the_site_token(): void {
