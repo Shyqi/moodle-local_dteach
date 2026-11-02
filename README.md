@@ -3,8 +3,10 @@
 Connects Moodle to DTeach through LTI 1.3. Teachers add DTeach from the activity
 chooser, and their students open it with their Moodle account.
 
-DTeach is a hosted service: this plugin needs a DTeach licence key to connect a site.
-Write to <contact@dteach.net> to get one.
+DTeach is a hosted service. Connecting a site is free, with no licence key: DTeach
+stays free on it for up to 20 members, and the first 15 days include every feature
+and the AI assistant. A licence key opens more members and the assistant: see
+<https://dteach.net/pricing>.
 
 ## Install
 
@@ -13,9 +15,10 @@ from Moodle 5.1), then visit *Site administration → Notifications*.
 
 ## Set up
 
-*Site administration → Plugins → Local plugins → DTeach → Connection*, then paste
-the licence key DTeach sent you. The page walks the LMS through registration and
-shows the plan afterwards.
+*Site administration → Plugins → Local plugins → DTeach → Connection*, then press
+*Connect for free*, or paste the licence key DTeach sent you. The page walks the LMS
+through registration and shows the plan afterwards: the days left of the trial, or
+how many of the free seats are taken.
 
 Nothing else to configure. LTI Dynamic Registration always leaves a tool pending,
 shown only as a preconfigured tool and launched in an embed; the plugin activates
@@ -27,12 +30,19 @@ make on it are kept.
 
 Moodle 4.2 or later, with LTI 1.3 Dynamic Registration.
 
-## Licence key
+## Free plan and licence key
 
-The plugin is GPL v3, but DTeach itself is a hosted service. Write to
-<contact@dteach.net> for a licence key. One key opens one site. When the plan ends,
-teachers can no longer open DTeach and the tool leaves the activity chooser; the
-activities already in a course are kept.
+The plugin is GPL v3, and DTeach itself is a hosted service.
+
+- **Free**, with no key: up to 20 members per site, teachers and students together,
+  without the AI assistant. A member is anyone who has opened DTeach from your site.
+  Once 20 have, the next ones cannot open DTeach until the site takes a licence key.
+- **Licence key**: more members and the AI assistant, priced to your institution.
+  Write to <contact@dteach.net> for one, then paste it on the *Connection* page. One
+  key opens one site, and the site keeps its members and courses.
+
+When a paid plan ends, the site goes back to the free plan: its 20 oldest members keep
+DTeach, and the activities already in a course are kept.
 
 ## Privacy
 

@@ -4,6 +4,19 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the plugin follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-11-02
+
+### Added
+
+- *Connect for free*: a site connects with the administrator's email address and no licence key. It gets 15 days with every feature, then stays free for up to 20 members.
+- A licence key can be pasted on a site that is already connected, without registering again.
+- The *Connection* page shows the days left of the trial, and how many of the free seats are taken.
+
+### Changed
+
+- The registered tool is updated through the External tool API (`lti_update_type()`), and only when it launches on the DTeach service domain.
+- The privacy provider declares the administrator email sent by the free connection, and the launch data the External tool module sends DTeach.
+
 ## [1.0.0] - 2026-10-13
 
 First release.

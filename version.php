@@ -25,10 +25,10 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_dteach';
-$plugin->version = 2026101500;
+$plugin->version = 2026110200;
 // Moodle 4.2, the first release with single_button::BUTTON_PRIMARY.
 $plugin->requires = 2023042400;
 $plugin->supported = [402, 502];
 $plugin->dependencies = ['mod_lti' => ANY_VERSION];
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = '1.0.0';
+$plugin->release = '1.1.0';
