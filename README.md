@@ -36,9 +36,17 @@ activities already in a course are kept.
 
 ## Privacy
 
-The plugin itself stores no personal data. It sends DTeach the address of your site
-and its licence key. DTeach activities are opened by Moodle's External tool (LTI)
-module, which declares separately what it transmits to the tool.
+The plugin itself stores no personal data. To connect your site, it sends DTeach the
+address of your site, and either its licence key or the email address of the
+administrator who connected it for free.
+
+When a user opens a DTeach activity, Moodle's External tool (LTI) module sends DTeach
+launch data about them: an identifier, and depending on the privacy settings of the
+DTeach tool (*Site administration → Plugins → Activity modules → External tool →
+Manage tools*), their name, email address, role and course. The plugin does not send
+this data itself; the External tool module does, and declares it in Moodle's privacy
+registry. DTeach handles it as described in its privacy policy:
+<https://dteach.net/privacy>.
 
 ## Support
 
