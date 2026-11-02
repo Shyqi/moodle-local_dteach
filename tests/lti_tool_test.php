@@ -37,6 +37,7 @@ final class lti_tool_test extends \advanced_testcase {
         parent::setUp();
         $this->resetAfterTest();
         $this->setAdminUser();
+        set_config('serviceurl', 'https://api.dteach.net', 'local_dteach');
     }
 
     /**
@@ -44,9 +45,13 @@ final class lti_tool_test extends \advanced_testcase {
      * activity chooser, and launched in an embed.
      *
      * @param string $clientid client id the platform minted for the registration
+     * @param string $toolurl launch URL the tool registered
      * @return int id of the created tool
      */
-    private function create_pending_tool(string $clientid): int {
+    private function create_pending_tool(
+        string $clientid,
+        string $toolurl = 'https://api.dteach.net/api/lti/launch/'
+    ): int {
         $type = (object) [
             'name' => 'DTeach',
             'state' => LTI_TOOL_STATE_PENDING,
@@ -55,7 +60,7 @@ final class lti_tool_test extends \advanced_testcase {
             'ltiversion' => LTI_VERSION_1P3,
         ];
         $config = (object) [
-            'lti_toolurl' => 'https://api.dteach.net/api/lti/launch/',
+            'lti_toolurl' => $toolurl,
             'lti_launchcontainer' => LTI_LAUNCH_CONTAINER_EMBED,
         ];
 
@@ -172,6 +177,17 @@ final class lti_tool_test extends \advanced_testcase {
             'typeid' => $typeid,
             'categoryid' => $category->id,
         ]));
+    }
+
+    /**
+     * The client id comes from the service, so a tool launching anywhere else is left alone.
+     */
+    public function test_activate_ignores_a_tool_of_another_domain(): void {
+        $typeid = $this->create_pending_tool('client-one', 'https://tool.example.com/launch');
+
+        $this->assertFalse(lti_tool::activate('client-one', true));
+
+        $this->assertSame(LTI_TOOL_STATE_PENDING, $this->tool_settings($typeid)['state']);
     }
 
     /**
