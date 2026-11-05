@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Connection state of this site: the licence key form, the pending registration, or the plan.
+ * Connection state of this site: the free connection, the licence key, the pending registration, or the plan.
  *
  * @package    local_dteach
  * @copyright  2026 dteach <contact@dteach.net>
@@ -43,6 +43,7 @@ $client = new client();
 $token = (string) get_config(LOCAL_DTEACH, 'token');
 $licencekey = (string) get_config(LOCAL_DTEACH, 'licencekey');
 $pendingkey = '';
+$pendingemail = '';
 $reissued = false;
 $error = '';
 $warning = '';
@@ -80,36 +81,76 @@ if ($action === 'activate') {
     }
 }
 
+if ($action === 'free') {
+    $pendingemail = optional_param('contactemail', '', PARAM_EMAIL);
+    if ($pendingemail === '') {
+        $error = get_string('contactemailrequired', LOCAL_DTEACH);
+    }
+}
+
 $status = null;
 
-if ($pendingkey === '' && $token !== '') {
+// A connected site takes a key without registering again: only its plan moves.
+if ($action === 'claim' && $token !== '') {
+    $claimkey = optional_param('licencekey', '', PARAM_ALPHANUM);
+    if ($claimkey === '') {
+        $error = get_string('licencekeyrequired', LOCAL_DTEACH);
+    } else {
+        try {
+            $status = $client->claim_licence($token, $claimkey);
+            set_config('licencekey', $claimkey, LOCAL_DTEACH);
+        } catch (service_exception $e) {
+            $error = $e->getMessage();
+        }
+    }
+}
+
+if ($status === null && $pendingkey === '' && $pendingemail === '' && $token !== '') {
     try {
         $status = $client->status($token);
     } catch (service_exception $e) {
         if ($e->servicecode !== 'invalid_token') {
             throw $e;
         }
-        // A token issued but never registered is purged after a day. The key belongs to this
-        // site for good, so spend it again rather than ask the admin to paste it a second time.
+        // A token issued but never registered is purged after a day. A key belongs to this
+        // site for good, so spend it again; a free site is asked for its email once more.
         unset_config('token', LOCAL_DTEACH);
         unset_config('registrationurl', LOCAL_DTEACH);
-        $pendingkey = $licencekey;
-        $reissued = true;
+        $token = '';
+        if ($licencekey !== '') {
+            $pendingkey = $licencekey;
+            $reissued = true;
+        } else {
+            $warning = get_string('tokenrejectedfree', LOCAL_DTEACH);
+        }
     }
 }
 
-if ($pendingkey !== '') {
+if ($pendingkey !== '' || $pendingemail !== '') {
     try {
-        $invite = $client->issue_token($CFG->wwwroot, $pendingkey);
-        set_config('licencekey', $pendingkey, LOCAL_DTEACH);
+        try {
+            if ($pendingkey !== '') {
+                $invite = $client->issue_token($CFG->wwwroot, $pendingkey);
+                set_config('licencekey', $pendingkey, LOCAL_DTEACH);
+            } else {
+                $invite = $client->connect_free($CFG->wwwroot, $pendingemail);
+            }
+        } catch (service_exception $e) {
+            if ($e->servicecode !== 'site_already_connected') {
+                throw $e;
+            }
+            // A reinstalled plugin lost the token its site still holds: the site's LMS vouches for it.
+            $invite = $client->recover(lti_tool::site_assertion());
+        }
         set_config('token', $invite['token'], LOCAL_DTEACH);
         set_config('registrationurl', $invite['registration_url'], LOCAL_DTEACH);
+        $token = $invite['token'];
         if ($reissued) {
             $warning = get_string('tokenrejected', LOCAL_DTEACH);
         }
         // A reinstalled plugin gets back the token of a site that is already registered.
         $status = $client->status($invite['token']);
-        if ($action === 'activate' && empty($status['connected'])) {
+        if (($action === 'activate' || $action === 'free') && empty($status['connected'])) {
             redirect(new moodle_url('/mod/lti/startltiadvregistration.php', [
                 'url' => $invite['registration_url'],
                 'sesskey' => sesskey(),
@@ -131,18 +172,31 @@ $toolmissing = !empty($status['connected']) && !$toolfound;
 
 $endsat = $status === null ? null : ($status['plan']['ends_at'] ?? null);
 $end = empty($endsat) ? false : strtotime($endsat);
-
-// The service names a running plan 'trial' or 'paid'; both open the tool.
-$active = $state === 'trial' || $state === 'paid';
+$daysleft = $end === false ? 0 : max(0, (int) ceil(($end - time()) / DAYSECS));
+$maxmembers = $status === null ? null : ($status['plan']['max_members'] ?? null);
+$seats = (object) ['count' => (int) ($status['members'] ?? 0), 'max' => (int) $maxmembers];
+$full = $maxmembers !== null && $seats->count >= $seats->max;
 
 if ($state === 'expired') {
     $statelabel = get_string('stateexpired', LOCAL_DTEACH);
     $statevariant = 'warning';
     $summary = get_string('expired', LOCAL_DTEACH);
-} else if ($active) {
+} else if ($toolmissing) {
     $statelabel = get_string('stateactive', LOCAL_DTEACH);
     $statevariant = 'success';
-    $summary = get_string($toolmissing ? 'toolmissing' : 'active', LOCAL_DTEACH);
+    $summary = get_string('toolmissing', LOCAL_DTEACH);
+} else if ($state === 'trial') {
+    $statelabel = get_string('statetrial', LOCAL_DTEACH);
+    $statevariant = 'info';
+    $summary = get_string('trialdaysleft', LOCAL_DTEACH, $daysleft);
+} else if ($state === 'free') {
+    $statelabel = get_string('statefree', LOCAL_DTEACH);
+    $statevariant = $full ? 'warning' : 'secondary';
+    $summary = get_string($full ? 'freefull' : 'freeseats', LOCAL_DTEACH, $seats);
+} else if ($state === 'paid') {
+    $statelabel = get_string('stateactive', LOCAL_DTEACH);
+    $statevariant = 'success';
+    $summary = get_string('active', LOCAL_DTEACH);
 } else {
     $statelabel = get_string('statenotconnected', LOCAL_DTEACH);
     $statevariant = 'secondary';
@@ -163,6 +217,12 @@ if ($end !== false) {
     $details[] = [
         'label' => get_string('endson', LOCAL_DTEACH),
         'value' => userdate($end, get_string('strftimedaydate')),
+    ];
+}
+if ($maxmembers !== null) {
+    $details[] = [
+        'label' => get_string('members', LOCAL_DTEACH),
+        'value' => get_string('seats', LOCAL_DTEACH, $seats),
     ];
 }
 $details[] = [
@@ -200,7 +260,7 @@ if ($toolmissing) {
 $actions .= html_writer::link(
     'mailto:' . LOCAL_DTEACH_CONTACT,
     get_string('contactus', LOCAL_DTEACH),
-    ['class' => 'btn ' . ($state === 'expired' ? 'btn-primary' : 'btn-link')]
+    ['class' => 'btn ' . ($state === 'expired' || $full ? 'btn-primary' : 'btn-link')]
 );
 
 echo $OUTPUT->render_from_template('local_dteach/connect', [
@@ -208,14 +268,24 @@ echo $OUTPUT->render_from_template('local_dteach/connect', [
     'statevariant' => $statevariant,
     'summary' => $summary,
     'details' => $details,
-    'toolready' => $active && $toolfound ? get_string('toolready', LOCAL_DTEACH) : '',
-    'keyform' => $fresh ? [
+    'toolready' => $state !== 'expired' && $toolfound ? get_string('toolready', LOCAL_DTEACH) : '',
+    'freeform' => $fresh ? [
         'formurl' => $pageurl->out(false),
         'sesskey' => sesskey(),
+        'label' => get_string('contactemail', LOCAL_DTEACH),
+        'help' => get_string('contactemailhelp', LOCAL_DTEACH),
+        'value' => $USER->email,
+        'submit' => get_string('connectfree', LOCAL_DTEACH),
+    ] : false,
+    'keyform' => $state === 'paid' ? false : [
+        'formurl' => $pageurl->out(false),
+        'sesskey' => sesskey(),
+        'action' => $token !== '' ? 'claim' : 'activate',
+        'title' => get_string('havekey', LOCAL_DTEACH),
         'label' => get_string('licencekey', LOCAL_DTEACH),
         'help' => get_string('licencekeyhelp', LOCAL_DTEACH),
         'submit' => get_string('activate', LOCAL_DTEACH),
-    ] : false,
+    ],
     'connectsteps' => $fresh ? get_string('connectsteps', LOCAL_DTEACH) : '',
     'steps' => $fresh ? [
         get_string('connectstep1', LOCAL_DTEACH),

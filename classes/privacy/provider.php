@@ -29,16 +29,26 @@ use core_privacy\local\metadata\provider as metadata_provider;
  */
 class provider implements metadata_provider, null_provider {
     /**
-     * Describe the one call this plugin makes to the dteach service.
+     * Describe what this plugin sends to the dteach service, and what the tool it registers receives.
      *
      * @param collection $collection metadata collection to add to
-     * @return collection the collection, with this plugin's external link added
+     * @return collection the collection, with both external links added
      */
     public static function get_metadata(collection $collection): collection {
         $collection->add_external_location_link('dteach', [
             'siteurl' => 'privacy:metadata:dteach:siteurl',
             'licencekey' => 'privacy:metadata:dteach:licencekey',
+            'contactemail' => 'privacy:metadata:dteach:contactemail',
         ], 'privacy:metadata:dteach');
+
+        // Sent by mod_lti, not by this plugin: declared here so admins see where it goes.
+        $collection->add_external_location_link('dteach_launch', [
+            'userid' => 'privacy:metadata:dteach_launch:userid',
+            'fullname' => 'privacy:metadata:dteach_launch:fullname',
+            'email' => 'privacy:metadata:dteach_launch:email',
+            'roles' => 'privacy:metadata:dteach_launch:roles',
+            'course' => 'privacy:metadata:dteach_launch:course',
+        ], 'privacy:metadata:dteach_launch');
 
         return $collection;
     }

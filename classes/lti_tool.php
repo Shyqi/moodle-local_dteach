@@ -24,6 +24,34 @@ namespace local_dteach;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class lti_tool {
+    /** @var string Audience of the site assertion: never a client id, which launch tokens carry. */
+    private const RECOVERY_AUDIENCE = 'dteach:site-recovery';
+
+    /** @var int Seconds the site assertion stays valid. */
+    private const ASSERTION_TTL = 60;
+
+    /**
+     * Statement that this site is the one the service registered, signed with its LTI platform key.
+     *
+     * The key belongs to mod_lti and outlives this plugin, so a reinstalled plugin can prove
+     * the site it runs on to the service, which checks it against the keys the site published.
+     *
+     * @return string signed JWT
+     */
+    public static function site_assertion(): string {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/lti/locallib.php');
+
+        $privatekey = \mod_lti\local\ltiopenid\jwks_helper::get_private_key();
+        $now = time();
+        return \Firebase\JWT\JWT::encode([
+            'iss' => $CFG->wwwroot,
+            'aud' => self::RECOVERY_AUDIENCE,
+            'iat' => $now,
+            'exp' => $now + self::ASSERTION_TTL,
+        ], $privatekey['key'], 'RS256', $privatekey['kid']);
+    }
+
     /**
      * Activate the registered tool, offering it in the activity chooser while the plan runs.
      *
@@ -35,6 +63,8 @@ class lti_tool {
      * The client id is what names our tool: dteach serves several products from one
      * launch URL, so a site running more than one of them has several tools sharing a
      * base URL, told apart only by the client id the platform minted per registration.
+     * The service tells us that id, so only a tool launching on the service's own domain
+     * is ever touched.
      *
      * @param string $clientid client id of the registration this site owns
      * @param bool $available whether the plan still allows new activities
@@ -44,8 +74,9 @@ class lti_tool {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/mod/lti/locallib.php');
 
+        $servicedomain = lti_get_domain_from_url((string) get_config('local_dteach', 'serviceurl'));
         $record = $DB->get_record('lti_types', ['clientid' => $clientid]);
-        if ($record === false) {
+        if ($record === false || empty($servicedomain) || $record->tooldomain !== $servicedomain) {
             return false;
         }
 
@@ -53,23 +84,41 @@ class lti_tool {
         // activities already in a course stay, and the service refuses their launch.
         $coursevisible = $available ? LTI_COURSEVISIBLE_ACTIVITYCHOOSER : LTI_COURSEVISIBLE_NO;
 
-        // Not lti_update_type(): it wipes what it is not given, course categories and forcessl.
-        if ((int) $record->state !== LTI_TOOL_STATE_CONFIGURED || (int) $record->coursevisible !== $coursevisible) {
-            $DB->update_record('lti_types', (object) [
-                'id' => $record->id,
-                'state' => LTI_TOOL_STATE_CONFIGURED,
-                'coursevisible' => $coursevisible,
-                'timemodified' => time(),
-            ]);
-        }
-        if ((int) (lti_get_type_config($record->id)['launchcontainer'] ?? 0) !== LTI_LAUNCH_CONTAINER_WINDOW) {
-            lti_update_config((object) [
-                'typeid' => $record->id,
-                'name' => 'launchcontainer',
-                'value' => LTI_LAUNCH_CONTAINER_WINDOW,
-            ]);
+        $typeconfig = lti_get_type_config($record->id);
+        $ready = (int) $record->state === LTI_TOOL_STATE_CONFIGURED
+            && (int) $record->coursevisible === $coursevisible
+            && (int) ($typeconfig['launchcontainer'] ?? 0) === LTI_LAUNCH_CONTAINER_WINDOW;
+        if ($ready) {
+            return true;
         }
 
+        $type = lti_get_type($record->id);
+        // No config key maps onto `state`, so the column is set here.
+        $type->state = LTI_TOOL_STATE_CONFIGURED;
+        $config = (object) [
+            'lti_coursevisible' => $coursevisible,
+            'lti_launchcontainer' => LTI_LAUNCH_CONTAINER_WINDOW,
+            // Both are reset by lti_update_type() to what it is given, so they are handed back as they are.
+            'lti_forcessl' => $typeconfig['forcessl'] ?? 0,
+            'lti_coursecategories' => self::course_categories($record->id),
+        ];
+        lti_update_type($type, $config);
+
         return true;
+    }
+
+    /**
+     * Course categories the tool is restricted to, in the form lti_update_type() takes them.
+     *
+     * @param int $typeid id of the tool
+     * @return string comma-separated category ids, empty when the tool is not restricted
+     */
+    private static function course_categories(int $typeid): string {
+        global $DB;
+
+        if (!$DB->get_manager()->table_exists('lti_types_categories')) {
+            return '';
+        }
+        return implode(',', $DB->get_fieldset_select('lti_types_categories', 'categoryid', 'typeid = ?', [$typeid]));
     }
 }

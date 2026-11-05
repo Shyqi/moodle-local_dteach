@@ -61,6 +61,45 @@ class client {
     }
 
     /**
+     * Connect this site for free, with no key: the service only needs a way to reach its admin.
+     *
+     * @param string $siteurl wwwroot of this Moodle
+     * @param string $contactemail where DTeach reaches the admin who connected the site
+     * @return array the issued invite, including its registration_url
+     */
+    public function connect_free(string $siteurl, string $contactemail): array {
+        return $this->request('POST', '/api/lti/dteach/invites/', [
+            'site_url' => $siteurl,
+            'contact_email' => $contactemail,
+        ], null);
+    }
+
+    /**
+     * Spend a licence key on a site that is already connected, typically one on the free plan.
+     *
+     * @param string $token
+     * @param string $licencekey key dteach sent to the buyer
+     * @return array the connection state, now on the plan the key holds
+     */
+    public function claim_licence(string $token, string $licencekey): array {
+        return $this->request('POST', '/api/lti/dteach/licence/', [
+            'licence_key' => $licencekey,
+        ], $token);
+    }
+
+    /**
+     * Get back the token of a site that is already connected, on the word of the site's LMS.
+     *
+     * @param string $assertion JWT signed with this site's LTI platform key
+     * @return array the site's invite, including its token
+     */
+    public function recover(string $assertion): array {
+        return $this->request('POST', '/api/lti/dteach/recover/', [
+            'assertion' => $assertion,
+        ], null);
+    }
+
+    /**
      * Connection and plan state behind a token.
      *
      * @param string $token

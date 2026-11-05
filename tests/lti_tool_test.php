@@ -37,6 +37,7 @@ final class lti_tool_test extends \advanced_testcase {
         parent::setUp();
         $this->resetAfterTest();
         $this->setAdminUser();
+        set_config('serviceurl', 'https://api.dteach.net', 'local_dteach');
     }
 
     /**
@@ -44,9 +45,13 @@ final class lti_tool_test extends \advanced_testcase {
      * activity chooser, and launched in an embed.
      *
      * @param string $clientid client id the platform minted for the registration
+     * @param string $toolurl launch URL the tool registered
      * @return int id of the created tool
      */
-    private function create_pending_tool(string $clientid): int {
+    private function create_pending_tool(
+        string $clientid,
+        string $toolurl = 'https://api.dteach.net/api/lti/launch/'
+    ): int {
         $type = (object) [
             'name' => 'DTeach',
             'state' => LTI_TOOL_STATE_PENDING,
@@ -55,7 +60,7 @@ final class lti_tool_test extends \advanced_testcase {
             'ltiversion' => LTI_VERSION_1P3,
         ];
         $config = (object) [
-            'lti_toolurl' => 'https://api.dteach.net/api/lti/launch/',
+            'lti_toolurl' => $toolurl,
             'lti_launchcontainer' => LTI_LAUNCH_CONTAINER_EMBED,
         ];
 
@@ -175,11 +180,37 @@ final class lti_tool_test extends \advanced_testcase {
     }
 
     /**
+     * The client id comes from the service, so a tool launching anywhere else is left alone.
+     */
+    public function test_activate_ignores_a_tool_of_another_domain(): void {
+        $typeid = $this->create_pending_tool('client-one', 'https://tool.example.com/launch');
+
+        $this->assertFalse(lti_tool::activate('client-one', true));
+
+        $this->assertSame(LTI_TOOL_STATE_PENDING, $this->tool_settings($typeid)['state']);
+    }
+
+    /**
      * A site whose registration never happened has no tool to activate.
      */
     public function test_activate_ignores_an_unknown_client_id(): void {
         $this->create_pending_tool('client-one');
 
         $this->assertFalse(lti_tool::activate('client-two', true));
+    }
+
+    /**
+     * The service checks the assertion against the keys this site publishes for LTI.
+     */
+    public function test_the_site_assertion_is_signed_with_the_platform_key(): void {
+        global $CFG;
+
+        $assertion = lti_tool::site_assertion();
+
+        $keys = \Firebase\JWT\JWK::parseKeySet(\mod_lti\local\ltiopenid\jwks_helper::get_jwks());
+        $claims = \Firebase\JWT\JWT::decode($assertion, $keys);
+        $this->assertSame($CFG->wwwroot, $claims->iss);
+        $this->assertSame('dteach:site-recovery', $claims->aud);
+        $this->assertLessThanOrEqual(60, $claims->exp - $claims->iat);
     }
 }
